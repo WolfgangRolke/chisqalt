@@ -1,0 +1,73 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><title>R: RG.test</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="R.css" />
+</head><body>
+
+<table width="100%" summary="page for RG.test {chisqalt}"><tr><td>RG.test {chisqalt}</td><td style="text-align: right;">R Documentation</td></tr></table>
+
+<h2>RG.test</h2>
+
+<h3>Description</h3>
+
+<p>This function does a chi square goodness of fit test with binning chosen based on an alternative
+</p>
+
+
+<h3>Usage</h3>
+
+<pre>
+RG.test(
+  dta,
+  LR = c(-Inf, Inf),
+  pnull,
+  param = NULL,
+  palt,
+  sample.sized.fixed = TRUE,
+  nkappa = 5
+)
+</pre>
+
+
+<h3>Arguments</h3>
+
+<table summary="R argblock">
+<tr valign="top"><td><code>dta</code></td>
+<td>
+<p>(data to test)</p>
+</td></tr>
+<tr valign="top"><td><code>pnull</code></td>
+<td>
+<p>cdf under the null</p>
+</td></tr>
+<tr valign="top"><td><code>palt</code></td>
+<td>
+<p>cdf under the alternative</p>
+</td></tr>
+<tr valign="top"><td><code>LR=c(-Inf, </code></td>
+<td>
+<p>Inf) support of distribution under the null</p>
+</td></tr>
+<tr valign="top"><td><code>param=NULL</code></td>
+<td>
+<p>parameters of cdf under null, NULL if parameters are fixed</p>
+</td></tr>
+<tr valign="top"><td><code>sample.size.fixed=TRUE</code></td>
+<td>
+<p>was sample sized fixed or from a Poisson distribution?</p>
+</td></tr>
+<tr valign="top"><td><code>nkappa=5</code></td>
+<td>
+<p>(number of bin types to include)</p>
+</td></tr>
+</table>
+
+
+<h3>Examples</h3>
+
+<pre>
+ chisq.alt.test(dta=x, pnull=function(x, param) pnorm(x), palt=function(x) pt(x, 5))
+ chisq.alt.test(dta=x, pnull=function(x, param) pnorm(x, param[1], param[2]), param=c(0, 1), palt=function(x) pt(x, 5))
+</pre>
+
+<hr /><div style="text-align: center;">[Package <em>chisqalt</em> version 0.0.0.900 <a href="00Index.html">Index</a>]</div>
+</body></html>

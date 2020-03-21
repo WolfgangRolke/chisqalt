@@ -9,7 +9,10 @@ output:
 ---
 
 ```{r, echo=FALSE}
-library(chisqalt)
+tmp <- try(library(chisqalt), silent=TRUE)
+if(substring(tmp[1], 1, 5)=="Error") {
+  cat("Download library chisqalt from https://github.com/WolfgangRolke/chisqalt\n")
+} else {library(chisqalt)}  
 library(knitr)
 opts_chunk$set(echo=FALSE, 
                message=FALSE, 
@@ -25,7 +28,7 @@ custom.col <- c("#4E84C4", "#C4961A",
                 "#3399FF", "#00FF99", "#FF00CC")
 # Colors for graphs (not used)
 custom.shape <- c(20, 0:7)
-Methods <- c("Chi RG", "Equal Prob",
+Methods <- c("RG", "Equal Prob",
     "Equal Size", "Histogram",  "KS", "AD",
     "ZK", "ZA", "ZC")
 bttr <- expression(RG ~ chi^2)
@@ -470,7 +473,7 @@ for(i in c(1, 10, 20)) {
 ```
 
 
-### Flat (Uniform) vs Linear
+### Uniform[0,1] vs Linear
 
 Here we have $H_0: F=U[0,1]$ vs $H_a: F=\text{Linear}(s)$.
 
@@ -519,7 +522,7 @@ df <- data.frame(
         ordered=TRUE
   )
 )
-df1 <- df[df$Method=="Chi RG", ]
+df1 <- df[df$Method=="RG", ]
 ggplot(data=df, 
        aes(x, Power , shape=Method)) +
   geom_point() +
@@ -635,7 +638,7 @@ df <- data.frame(
         ordered=TRUE
   )
 )
-df1 <- df[df$Method=="Chi RG", ]
+df1 <- df[df$Method=="RG", ]
 ggplot(data=df, 
        aes(x, Power , shape=Method)) +
   geom_point() +
@@ -815,7 +818,7 @@ df <- data.frame(
         ordered=TRUE
   )
 )
-df1 <- df[df$Method=="Chi RG", ]
+df1 <- df[df$Method=="RG", ]
 ggplot(data=df, 
        aes(x, Power , shape=Method)) +
   geom_point() +
@@ -883,7 +886,7 @@ df <- data.frame(
         ordered=TRUE
   )
 )
-df1 <- df[df$Method=="Chi RG", ]
+df1 <- df[df$Method=="RG", ]
 ggplot(data=df, 
        aes(x, Power , shape=Method)) +
   geom_point() +
@@ -953,7 +956,7 @@ df <- data.frame(
         ordered=TRUE
   )
 )
-df1 <- df[df$Method=="Chi RG", ]
+df1 <- df[df$Method=="RG", ]
 ggplot(data=df, 
        aes(x, Power , shape=Method)) +
   geom_point() +
@@ -1145,7 +1148,7 @@ out
 
 ```{r Performance}
 m <- nrow(all.cases)
-m
 round(sort(apply(all.cases, 2, mean)), 1)
+apply(all.cases, 2, fivenum)
 ```
 

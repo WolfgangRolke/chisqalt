@@ -20,6 +20,8 @@ opts_chunk$set(echo=FALSE,
                error=TRUE)
 ```
 
+To run theses calculations you need the R library *chisqalt*. 
+
 ```{r}
 B <- 10000 # Number of simulation runs
 custom.col <- c("#4E84C4", "#C4961A",
@@ -168,12 +170,7 @@ plt1 <- ggplot(data=df,
   labs(color='Sample Size')+
   xlab('Number of Bins')
 print(plt1)
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig1.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig1.png"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig1.eps"))
+ggsave(paste0(getwd(), "/Computational Statistics/Fig1.eps"))
 ```
 
 ## Type of bins
@@ -222,7 +219,7 @@ for(k in  1:20) {
 round(M, 2)
 round(100*P, 1)
 df <- data.frame(
-  n=rep(2:21, 5),
+  n = rep(2:21, 5),
   M=c(t(M)),
   Power=c(t(P)),
   kappa=factor(rep(kappas, each=20))
@@ -230,36 +227,14 @@ df <- data.frame(
 ```
 
 ```{r}
-plt2a <- ggplot(data=df, aes(n, M, shape=kappa)) +
-  geom_point() +
-  theme(legend.position = "none")
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig2a.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig2a.eps"))
-plt2b <- ggplot(data=df, 
-                aes(n, Power, shape=kappa)) +
-  geom_point() 
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig2b.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig2b.eps"))
-```
-
-```{r}
-pushViewport(viewport(layout = grid.layout(1, 2)))
-print(plt2a, 
-  vp=viewport(layout.pos.row=1, layout.pos.col=1))
-print(plt2b, 
-  vp=viewport(layout.pos.row=1, layout.pos.col=2))
-pdf()
-grid.newpage()
-pushViewport(viewport(layout = grid.layout(1, 2)))
-print(plt2a, 
-  vp=viewport(layout.pos.row=1, layout.pos.col=1))
-print(plt2b, 
-  vp=viewport(layout.pos.row=1, layout.pos.col=2))
-dev.off()
+plt2 <- ggplot(data=df, aes(n, M, shape=kappa)) +
+  geom_point() + labs(x='Number of Bins')
+plt2
+ggsave(paste0(getwd(), "/Computational Statistics/Fig2.eps"))
+plt3 <- ggplot(data=df, aes(n, Power, shape=kappa))+
+  geom_point() + labs(x='Number of Bins')
+plt3
+ggsave(paste0(getwd(), "/Computational Statistics/Fig3.eps"))
 ```
 
 ## Normal(0,1) vs t(df)
@@ -269,9 +244,11 @@ case <- list(
   param = NULL,
   B = B,
   n = 1000, # sample size
+  alpha = 0.05,
   dnull = function(x, param) dnorm(x),  
   pnull = function(x, param) pnorm(x),
   rnull = function(n) rnorm(n),
+  qnull = function(p) qnorm(p),  
   palt = function(x) pt(x, 1),
   ralt = function(n) rt(n, 1),
   LR = c(-Inf, Inf)
@@ -282,17 +259,27 @@ mle.fun <- function(x) c(0, 1)
 
 -  Power vs. various alternatives:
 
-```{r fig3, cache=TRUE}
-rn <- 5
+```{r fig4, cache=TRUE}
+rn <- 1
+
 out <- matrix(0, 20, length(Methods))
 rownames(out) <- paste("df =", 3*1:20)
 colnames(out) <- Methods
 for(i in 1:20) {
-  case$palt = function(x) pt(x, 3*i)
-  case$ralt = function(n) rt(n, 3*i)
-  out[i, ] <- tests.power(case, est.mle = mle.fun)  
-} 
+  case$palt <- function(x) pt(x, 3*i)
+  case$ralt <- function(n) rt(n, 3*i)
+  out[i, ] <- tests.power(case, mle.fun)
+}  
 out <- round(out*100, 1)
+```
+
+
+-  Mean Powers, in order:
+
+```{r}
+z <- sort(round(apply(out, 2, mean)), 
+          decreasing = TRUE)
+paste0(names(z), ": ", as.numeric(z), "%", collapse = ", ")
 ```
 
 ```{r}
@@ -307,7 +294,7 @@ df <- data.frame(
 )
 ```
 
-```{r error=TRUE}
+```{r}
 df1 <- df[df$Method=="RG", ]
 ggplot(data=df, 
        aes(x, Power , shape=Method)) +
@@ -317,20 +304,16 @@ ggplot(data=df,
   scale_shape_discrete(
     labels = c(bttr, Methods[-1])) +
   scale_shape_manual(values=custom.shape)
-ggsave(paste0(getwd(), 
-              "/Computational Statistics/Fig3.pdf"))
-ggsave(paste0(getwd(), 
-              "/Computational Statistics/Fig3.eps"))
-out
+ggsave(paste0(getwd(), "/Computational Statistics/Fig4.eps"))
 all.cases <- out
 ```
 
 -  Does $M_{k,\kappa}$ yield best power?
 
-```{r error=TRUE}
+```{r fig4a, cache=TRUE}
 case$palt <- function(x) pt(x, 15)
 case <- make.case(case)
-best <- opt.chisq.power(case)
+best <- RG.power(case)
 Ks <- best$nbins + (-2):2
 Ks <- Ks[Ks>1+length(case$param)]
 kappa <- 0:4/4
@@ -349,7 +332,7 @@ Yes!
 
 -  Dependence on Sample Size
 
-```{r fig3a, cache=TRUE}
+```{r fig4b, cache=TRUE}
 rn <- 1
 n <- c(100, 250, 500, 1000, 2000)
 out <- matrix(0, 2, 5)
@@ -360,7 +343,7 @@ for(i in c(1, 10, 20)) {
   case$ralt = function(n) rt(n, 3*i)
   for(j in seq_along(n)) {
     case$n <- n[j]
-    out[, j] <- as.numeric(unlist(opt.chisq.power(case))[1:2])
+    out[, j] <- as.numeric(unlist(RG.power(case))[1:2])
   }
   print(out)
 }
@@ -379,6 +362,7 @@ case <- list(
   pnull = function(x, param) 
     pnorm(x, param[1], param[2]),  
   rnull = function(n) rnorm(n),
+  qnull = function(p) qnorm(p), 
   palt = function(x) pt(x, 1),
   ralt = function(n) rt(n, 1),
   LR = c(-Inf, Inf)
@@ -389,8 +373,8 @@ mle.fun <- function(x) c(mean(x), sd(x))
 
 -  Power vs. various alternatives:
 
-```{r fig4, cache=TRUE}
-rn <- 10
+```{r fig5, cache=TRUE}
+rn <- 2
 out <- matrix(0, 20, length(Methods))
 rownames(out) <- paste("df =", 3*1:20)
 colnames(out) <- Methods
@@ -402,6 +386,15 @@ for(i in 1:20) {
 out <- round(out*100, 1)
 ```
 
+
+
+-  Mean Powers, in order:
+
+```{r}
+z <- sort(round(apply(out, 2, mean)), 
+          decreasing = TRUE)
+paste0(names(z), ": ", as.numeric(z), "%", collapse = ", ")
+```
 
 ```{r}
 colnames(out) <- Methods
@@ -422,10 +415,7 @@ ggplot(data=df,
   scale_shape_discrete(
     labels = c(bttr, Methods[-1])) +
   scale_shape_manual(values=custom.shape)
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig4.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig4.eps"))
+ggsave(paste0(getwd(), "/Computational Statistics/Fig5.eps"))
 out
 all.cases <- rbind(all.cases, out)
 ```
@@ -433,10 +423,10 @@ all.cases <- rbind(all.cases, out)
 
 -  Does $M_{k,\kappa}$ yield best power?
 
-```{r c15, cache=TRUE}
+```{r fig5a, cache=TRUE}
 case$palt <- function(x) pt(x, 9)
 case <- make.case(case)
-best <- opt.chisq.power(case)
+best <- RG.power(case)
 Ks <- best$nbins + (-2):2
 Ks <- Ks[Ks>1+length(case$param)]
 kappa <- 0:4/4
@@ -456,7 +446,7 @@ Yes!
 
 -  Dependence on Sample Size
 
-```{r fig4a, cache=TRUE}
+```{r fig5b, cache=TRUE}
 n <- c(100, 250, 500, 1000, 2000)
 out <- matrix(0, 2, 5)
 dimnames(out) <- list(c("nbins", "kappa"), n)
@@ -466,7 +456,7 @@ for(i in c(1, 10, 20)) {
   case$ralt = function(n) rt(n, 3*i)
   for(j in seq_along(n)) {
     case$n <- n[j]
-    out[, j] <- as.numeric(unlist(opt.chisq.power(case))[1:2])
+    out[, j] <- as.numeric(unlist(RG.power(case))[1:2])
   }
   print(out)
 }
@@ -487,6 +477,7 @@ case <- list(
   pnull = function(x, param) 
     punif(x),  
   rnull = function(n) runif(n),
+  qnull = function(p) p, 
   palt = function(x) plinear(x, 0.1),
   ralt = function(n) rlinear(n, 0.1),
   LR = c(0, 1)
@@ -496,8 +487,8 @@ case <- make.case(case)
 
 -  Power vs. various alternatives:
 
-```{r fig5, cache=TRUE}
-rn <- 5
+```{r fig6, cache=TRUE}
+rn <- 1
 slope <- round(seq(0, 0.3, length=20), 2)
 out <- matrix(0, 20, length(Methods))
 rownames(out) <- paste("slope =", slope)
@@ -511,6 +502,16 @@ for(i in 1:20) {
 } 
 out <- round(out*100, 1)
 ```
+
+
+-  Mean Powers, in order:
+
+```{r}
+z <- sort(round(apply(out, 2, mean)), 
+          decreasing = TRUE)
+paste0(names(z), ": ", as.numeric(z), "%", collapse = ", ")
+```
+
 
 ```{r}
 colnames(out) <- Methods
@@ -531,21 +532,17 @@ ggplot(data=df,
   scale_shape_discrete(
     labels = c(bttr, Methods[-1])) +
   scale_shape_manual(values=custom.shape)
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig5.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig5.eps"))
-out
+ggsave(paste0(getwd(), "/Computational Statistics/Fig6.eps"))
 all.cases <- rbind(all.cases, out)
 ```
 
 -  Does $M_{k,\kappa}$ yield best power?
 
-```{r error=TRUE}
+```{r fig6a, cache=TRUE}
 case$palt = function(x) plinear(x, 0.14)
 case$ralt = function(n) rlinear(n, 0.14)
 case <- make.case(case)
-best <- opt.chisq.power(case)
+best <- RG.power(case)
 Ks <- best$nbins + (-2):2
 Ks <- Ks[Ks>1+length(case$param)]
 kappa <- 0:4/4
@@ -566,7 +563,7 @@ Yes (within simulation error)!
 
 -  Dependence on Sample Size
 
-```{r fig5a, cache=TRUE}
+```{r fig6b, cache=TRUE}
 n <- c(100, 250, 500, 1000, 2000)
 out <- matrix(0, 2, 5)
 dimnames(out) <- list(c("nbins", "kappa"), n)
@@ -576,7 +573,7 @@ for(i in c(1, 10, 20)) {
   case$ralt <- function(n) rlinear(n, slope[i])
   for(j in seq_along(n)) {
     case$n <- n[j]
-    out[, j] <- as.numeric(unlist(opt.chisq.power(case))[1:2])
+    out[, j] <- as.numeric(unlist(RG.power(case))[1:2])
   }
   print(out)
 }  
@@ -595,6 +592,7 @@ case <- list(
   pnull = function(x, param) 
     pexp(x, param),  
   rnull = function(n) rexp(n, 1),
+  qnull = function(p) qexp(p, 1), 
   LR = c(0, Inf)
 )
 case <- make.case(case)
@@ -603,8 +601,8 @@ mle.fun <- function(x) 1/mean(x)
 
 -  Power vs. various alternatives:
 
-```{r fig6, cache=TRUE}
-rn <- 8
+```{r fig7, cache=TRUE}
+rn <- 1
 out <- matrix(0, 20, length(Methods))
 sigma <- round(seq(1, 0.3, length=20), 2)
 rownames(out) <- sigma
@@ -627,6 +625,17 @@ for(i in 1:20) {
 out <- round(out*100, 1)
 ```
 
+
+
+-  Mean Powers, in order:
+
+```{r}
+z <- sort(round(apply(out, 2, mean)), 
+          decreasing = TRUE)
+paste0(names(z), ": ", as.numeric(z), "%", collapse = ", ")
+```
+
+
 ```{r}
 colnames(out) <- Methods
 rownames(out) <- paste("sd =", round(sigma, 2))
@@ -647,18 +656,14 @@ ggplot(data=df,
   scale_shape_discrete(
     labels = c(bttr, Methods[-1])) +
   scale_shape_manual(values=custom.shape)
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig6.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig6.eps"))
-out
+ggsave(paste0(getwd(), "/Computational Statistics/Fig7.eps"))
 all.cases <- rbind(all.cases, out)
 ```
 
 
 -  Does $M_{k,\kappa}$ yield best power?
 
-```{r ME.N, cache=TRUE}
+```{r fig7a, cache=TRUE}
 case$palt <- function(x) {
    0.9*pexp(x, 1) + 
    0.1*(pnorm(x, 1.5, 0.74)-pnorm(0, 1.5,  0.74))/(1-pnorm(0, 1.5, 0.74))
@@ -671,7 +676,7 @@ case$ralt <- function(n) {
     ifelse(z==0, rexp(case$n, 1), y)
   }
 case <- make.case(case)
-best <- opt.chisq.power(case)
+best <- RG.power(case)
 Ks <- best$nbins + (-2):2
 Ks <- Ks[Ks>1+length(case$param)]
 kappa <- 0:4/4
@@ -692,7 +697,7 @@ Yes (within simulation error)!
 
 -  Dependence on Sample Size
 
-```{r fig6a, cache=TRUE}
+```{r fig7b, cache=TRUE}
 n <- c(100, 250, 500, 1000, 2000)
 out <- matrix(0, 2, 5)
 dimnames(out) <- list(c("nbins", "kappa"), n)
@@ -711,65 +716,10 @@ for(i in c(1, 10, 20)) {
   }
   for(j in seq_along(n)) {
     case$n <- n[j]
-    out[, j] <- as.numeric(unlist(opt.chisq.power(case))[1:2])
+    out[, j] <- as.numeric(unlist(RG.power(case))[1:2])
   }
   print(out)
 }
-```
-
-
-### Uniform vs several alternatives
-
-```{r}
-case <- list(
-  param = NULL,
-  B = B,
-  n = 1000, # sample size
-  dnull = function(x, param) dunif(x),
-  pnull = function(x, param) punif(x),
-  rnull = function(n) runif(x),
-  qnull = function(x) qunif(x),
-  LR = c(0, 1)
-)
-```
-
-```{r}
-Models <- c("Linear", "Quadratic 1", 
-    "Quadratic 2", "Quadratic 3", 
-    "Exponential", "Beta")
-altmodel <- function(case, which) {
-  if(which=="Linear")
-     case$palt <- function(x) plinear(x, 0.18)
-  if(which=="Quadratic 1")  
-     case$dalt.txt <- "1+1.95*(x-0.5)^2"
-  if(which=="Quadratic 2")    
-     case$dalt.txt <- "1+0.4*x^2"
-  if(which=="Quadratic 3")    
-     case$dalt.txt <- "1+0.2*(x+1)^2"
-  if(which=="Exponential")  
-     case$dalt.txt <- "exp(-0.37*x)"  
-  if(which=="Beta")    
-     case$palt <- function(x) pbeta(x, 1.035, 0.91)
- case <- make.case(case)  
- case
-}
-
-```
-
--  Power vs. various alternatives:
-
-```{r cache=TRUE}
-rn <- 5
-out <- matrix(0, length(Models), 4)
-rownames(out) <- Models
-for(i in seq_along(Models)) {
-  case1 <- altmodel(case, Models[i])
-  out[i, ] <- unlist(opt.chisq.power(case1))  
-} 
-```
-
-```{r}
-out
 ```
 
 ## Uniform[0,1] vs Beta(1, q)
@@ -784,6 +734,7 @@ case <- list(
   pnull = function(x, param) 
     punif(x),  
   rnull = function(n) runif(n),
+  qnull = function(p) p, 
   palt = function(x) pbeta(x, 1, 1),
   ralt = function(n) rbeta(n, 1, 1),
   LR = c(0, 1)
@@ -792,8 +743,8 @@ case <- make.case(case)
 ```
 
 
-```{r fig7, cache=TRUE}
-rn <- 5
+```{r fig8, cache=TRUE}
+rn <- 1
 out <- matrix(0, 20, length(Methods))
 q <- sort(c(1, seq(0.8, 1.2, length=19)))
 rownames(out) <- paste("q =", q)
@@ -805,6 +756,16 @@ for(i in 1:20) {
 } 
 out <- round(out*100, 1)
 ```
+
+
+-  Mean Powers, in order:
+
+```{r}
+z <- sort(round(apply(out, 2, mean)), 
+          decreasing = TRUE)
+paste0(names(z), ": ", as.numeric(z), "%", collapse = ", ")
+```
+
 
 ```{r}
 q <- sort(c(1, seq(0.8, 1.2, length=19)))
@@ -827,16 +788,9 @@ ggplot(data=df,
   scale_shape_discrete(
     labels = c(bttr, Methods[-1])) +
   scale_shape_manual(values=custom.shape)
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig7.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig7.eps"))
+ggsave(paste0(getwd(), "/Computational Statistics/Fig8.eps"))
 out
 all.cases <- rbind(all.cases, out)
-```
-
-```{r}
-opt.chisq.power(case)
 ```
 
 
@@ -852,6 +806,7 @@ case <- list(
   pnull = function(x, param) 
     punif(x),  
   rnull = function(n) runif(n),
+  qnull = function(p) p, 
   palt = function(x) pbeta(x, 1, 1),
   ralt = function(n) rbeta(n, 1, 1),
   LR = c(0, 1)
@@ -860,8 +815,8 @@ case <- make.case(case)
 ```
 
 
-```{r fig8, cache=TRUE}
-rn <- 5
+```{r fig9, cache=TRUE}
+rn <- 1
 out <- matrix(0, 20, length(Methods))
 q <- sort(c(1, seq(0.8, 1.2, length=19)))
 rownames(out) <- paste("q =", q)
@@ -873,6 +828,16 @@ for(i in 1:20) {
 } 
 out <- round(out*100, 1)
 ```
+
+
+-  Mean Powers, in order:
+
+```{r}
+z <- sort(round(apply(out, 2, mean)), 
+          decreasing = TRUE)
+paste0(names(z), ": ", as.numeric(z), "%", collapse = ", ")
+```
+
 
 ```{r}
 q <- sort(c(1, seq(0.8, 1.2, length=19)))
@@ -895,20 +860,13 @@ ggplot(data=df,
   scale_shape_discrete(
     labels = c(bttr, Methods[-1])) +
   scale_shape_manual(values=custom.shape)
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig8.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig8.eps"))
-out
+ggsave(paste0(getwd(), "/Computational Statistics/Fig9.eps"))
 all.cases <- rbind(all.cases, out)
 ```
 
 
-```{r}
-opt.chisq.power(case)
-```
 
-## Normal(r, r) vs Gamma(r, 1)
+## Normal(r, $\sqrt{r}$) vs Gamma(r, 1)
 
 ```{r}
 case <- list(
@@ -926,8 +884,8 @@ case <- make.case(case)
 ```
 
 
-```{r fig9, cache=TRUE}
-rn <- 7
+```{r fig10, cache=TRUE}
+rn <- 1
 out <- matrix(0, 20, length(Methods))
 r <- 2*1:20+3
 rownames(out) <- paste("r =", r)
@@ -945,6 +903,15 @@ for(i in 1:20) {
 } 
 out <- round(out*100, 1)
 ```
+
+-  Mean Powers, in order:
+
+```{r}
+z <- sort(round(apply(out, 2, mean)), 
+          decreasing = TRUE)
+paste0(names(z), ": ", as.numeric(z), "%", collapse = ", ")
+```
+
 
 ```{r}
 colnames(out) <- Methods
@@ -965,25 +932,17 @@ ggplot(data=df,
   scale_shape_discrete(
     labels = c(bttr, Methods[-1])) +
   scale_shape_manual(values=custom.shape)
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig9.pdf"))
-ggsave(
-  paste0(getwd(), "/Computational Statistics/Fig9.eps"))
-out
+ggsave(paste0(getwd(), "/Computational Statistics/Fig10.eps"))
 all.cases <- rbind(all.cases, out)
 ```
 
-
-```{r}
-opt.chisq.power(case)
-```
 
 ## Type I error
 
 
 - Uniform [0, 1]
 
-```{r U01, cache=TRUE}
+```{r nullU01, cache=TRUE}
 rn <- 1
 case <- list(
    param = NULL,
@@ -998,13 +957,13 @@ case <- list(
    LR = c(0, 1)
 )
 case <- make.case(case)
-out <- opt.chisq.power(case)$power
+out <- RG.power(case)$power
 ```
 
 - Beta (2, 4)
 
-```{r Beta24, cache=TRUE}
-rn <- 2
+```{r nullBeta24, cache=TRUE}
+rn <- 1
 case <- list(
    param = NULL,
    B = 10000,
@@ -1018,15 +977,15 @@ case <- list(
    LR = c(0, 1)
 )
 case <- make.case(case)
-tmp <- opt.chisq.power(case)$power
+tmp <- RG.power(case)$power
 out <- rbind("U[0,1]"=out, "Beta(2,4)"=tmp)
 colnames(out) <- case$alpha
 ```
 
 - Gamma (3, 0.5)
 
-```{r G30.5, cache=TRUE}
-rn  <- 2
+```{r nullG30.5, cache=TRUE}
+rn  <- 1
 case <- list(
    param = NULL,
    B = 10000,
@@ -1040,15 +999,15 @@ case <- list(
    LR = c(0, Inf)
 )
 case <- make.case(case)
-tmp <- opt.chisq.power(case)$power
+tmp <- RG.power(case)$power
 out <- rbind(out, "Gamma(3, 0.5)"=tmp)
 ```
 
 
 - Normal(0, 1)
 
-```{r N01, cache=TRUE}
-rn  <- 2
+```{r nullN01, cache=TRUE}
+rn  <- 1
 case <- list(
    param = NULL,
    B = 10000,
@@ -1063,14 +1022,14 @@ case <- list(
 )
 case <- make.case(case)
 mle.fun <- function(x) c(0, 1)
-tmp <- opt.chisq.power(case)$power
+tmp <- RG.power(case)$power
 out <- rbind(out, "N(0,1)"=tmp)
 ```
 
 - Normal
 
-```{r N, cache=TRUE}
-rn  <- 2
+```{r nullN, cache=TRUE}
+rn  <- 1
 case <- list(
    param = c(0, 1),
    B = 10000,
@@ -1085,14 +1044,14 @@ case <- list(
 )
 case <- make.case(case)
 mle.fun <- function(x) c(mean(x), sd(x))
-tmp <- opt.chisq.power(case)$power
+tmp <- RG.power(case)$power
 out <- rbind(out, "Normal"=tmp)
 ```
 
 - Exponential 1
 
-```{r E1, cache=TRUE}
-rn  <- 2
+```{r nullE1, cache=TRUE}
+rn  <- 1
 case <- list(
    param = NULL,
    B = 10000,
@@ -1107,14 +1066,14 @@ case <- list(
 )
 case <- make.case(case)
 mle.fun <- function(x) c(1)
-tmp <- opt.chisq.power(case)$power
+tmp <- RG.power(case)$power
 out <- rbind(out, "Exp(1)"=tmp)
 ```
 
 - Exponential 
 
-```{r E, cache=TRUE}
-rn  <- 2
+```{r nullE, cache=TRUE}
+rn  <- 1
 case <- list(
    param = 1,
    B = 10000,
@@ -1129,7 +1088,7 @@ case <- list(
 )
 case <- make.case(case)
 mle.fun <- function(x) c(1/mean(x))
-tmp <- opt.chisq.power(case)$power
+tmp <- RG.power(case)$power
 out <- rbind(out, "Exponential"=tmp)
 ```
 
@@ -1137,10 +1096,6 @@ out <- rbind(out, "Exponential"=tmp)
 out <- round(100*out, 2)
 colnames(out) <- c("1%", "5%", "10%")
 kable.nice(out, n)
-```
-
-```{r}
-out
 ```
 
 
